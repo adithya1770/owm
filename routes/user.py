@@ -25,7 +25,7 @@ async def user_info(cookie: Cookie):
 @user.get("/house_info")
 async def house_information(cookie: House_Cookie):
     try:
-        response = supabase.table("houses").select("*").eq("house_id", cookie.house_id)
+        response = supabase.table("houses").select("*").eq("house_id", cookie.house_id).execute()
         return response.data
     except Exception as e:
         return e
@@ -33,7 +33,7 @@ async def house_information(cookie: House_Cookie):
 @user.get("/pickup_info")
 async def pickup_information(cookie: House_Cookie):
     try:
-        response = supabase.table("pickups").select("*").eq("house_id", cookie.house_id)
+        response = supabase.table("pickups").select("*").eq("house_id", cookie.house_id).execute()
         return response.data
     except Exception as e:
         return e
@@ -41,7 +41,7 @@ async def pickup_information(cookie: House_Cookie):
 @user.get("/billing_info")
 async def billing_information(cookie: House_Cookie):
     try:
-        response = supabase.table("billing").select("*").eq("house_id", cookie.house_id)
+        response = supabase.table("billing").select("*").eq("house_id", cookie.house_id).execute()
         return response.data
     except Exception as e:
         return e
@@ -49,7 +49,7 @@ async def billing_information(cookie: House_Cookie):
 @user.get("/billing_info/payment_status")
 async def payment_status(cookie: House_Cookie):
     try:
-        response = supabase.table("billing").select("status").eq("house_id", cookie.house_id)
+        response = supabase.table("billing").select("status").eq("house_id", cookie.house_id).execute()
         if response.data.status.tolower() in ["paid"]:
             return "Paid"
         else:

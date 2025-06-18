@@ -2,6 +2,7 @@ from fastapi import APIRouter
 from client import supabase
 from pydantic import BaseModel
 import jwt
+import serial
 import bcrypt
 
 auth = APIRouter()
@@ -25,6 +26,10 @@ class Credentials_Admin(BaseModel):
 class Credentials_Phone_Signup(BaseModel):
     phone: str
     password: str
+    email: str
+    display_name: str
+    house_id: str
+    address: str
 
 class Credentials_Phone_Signin(BaseModel):
     phone: str
@@ -41,11 +46,7 @@ class Password(BaseModel):
     password: str
 
 
-
-
 # PASSWORD AND CREDENTIALS RESET
-
-
 
 @auth.post("/password_reset")
 async def reset_password(creds: Email):
@@ -88,10 +89,23 @@ async def customer_verify(creds: Phone_Verification):
 @auth.post("/customer_signup_phone")
 async def customer_signup_phone(creds: Credentials_Phone_Signup):
     try:
-        supabase.auth.sign_up({
+        data = supabase.auth.sign_up({
             'phone': ("91"+creds.phone),
             'password': creds.password
         })
+        user = data.user.id
+        password_new = bcrypt.hashpw(creds.password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+        user_creds = {
+            "user_id": user,
+            "house_id": int(creds.house_id),
+            "phone_no": "91"+creds.phone,
+            "display_name": creds.display_name,
+            "email": creds.email,
+            "password": password_new,
+            "address": creds.address
+        }
+        response = supabase.table("user_overview").insert(user_creds).execute()
+        return {"success": "You are Successfully Signed Up. Wait for Verification", "token": user}
         return {"success": "You are Successfully Signed Up. Wait for Verification"}
     except Exception as e:
         return {"failed": str(e)}    
