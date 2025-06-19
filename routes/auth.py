@@ -107,8 +107,8 @@ async def customer_signup_phone(creds: Credentials_Phone_Signup):
         response = supabase.table("user_overview").insert(user_creds).execute()
         return {"success": "You are Successfully Signed Up. Wait for Verification", "token": user}
         return {"success": "You are Successfully Signed Up. Wait for Verification"}
-    except Exception as e:
-        return {"failed": str(e)}    
+    except:
+        return {"failed": "Your House is Not Yet Registered"}    
     
 @auth.post("/customer_signin_phone")
 async def customer_signin_phone(creds: Credentials_Phone_Signin):
