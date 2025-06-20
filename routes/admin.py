@@ -1,6 +1,7 @@
 from fastapi import APIRouter
 from client import supabase
 from pydantic import BaseModel
+import math
 
 admin = APIRouter()
 
@@ -25,14 +26,6 @@ class Billing(BaseModel):
     house_id: int
     month: str
 
-class Pickup(BaseModel):
-    pickup_id: int
-    timestamp: str
-    bin_id: int
-    house_id: int
-    truck_id: int
-    schedule_id: int
-
 class Truck(BaseModel):
     truck_id: int
     capacity: float
@@ -53,6 +46,7 @@ class Schedule(BaseModel):
 class Admin(BaseModel):
     admin_no: int
     admin_name: str
+
 
 @admin.get("/user_info")
 async def user_information():
@@ -173,22 +167,6 @@ async def add_billing(info: Billing):
     except:
         return {"message": "Billing Information Couldn't be Recorded"}
 
-@admin.post("/add_pickup")
-async def add_pickup(info: Pickup):
-    try:
-        data = {
-            "pickup_id": info.pickup_id,
-            "timestamp": info.timestamp,
-            "bin_id": info.bin_id,
-            "house_id": info.house_id,
-            "truck_id": info.truck_id,
-            "schedule_id": info.schedule_id
-        }
-        supabase.table("pickups").insert(data).execute()
-        return {"message": "Pickup Information Successfully Recorded"}
-    except:
-        return {"message": "Pickup Information Couldn't be Recorded"}
-
 @admin.post("/add_truck")
 async def add_truck(info: Truck):
     try:
@@ -229,3 +207,44 @@ async def add_schedule(info: Schedule):
         return {"message": "Schedule Information Successfully Recorded"}
     except:
         return {"message": "Schedule Information Couldn't be Recorded"}
+    
+@admin.get("/route_processing")
+async def data_processing():
+    try:
+        coordinate_table = []
+
+        house_location = supabase.table("houses").select("house_id", "gps_location").execute()
+        truck_location = supabase.table("trucks").select("truck_id", "gps_location", "status").execute()
+
+        house_coords = house_location.data
+        truck_coords = truck_location.data
+
+        for house in house_coords:
+            house_lat, house_lon = [float(x) for x in house["gps_location"].split(",")]
+            house_lat, house_lon = map(math.radians, [house_lat, house_lon])
+
+            for truck in truck_coords:
+                truck_lat, truck_lon = [float(x) for x in truck["gps_location"].split(",")]
+                truck_lat, truck_lon = map(math.radians, [truck_lat, truck_lon])
+
+                dlat = truck_lat - house_lat
+                dlon = truck_lon - house_lon
+                a = math.sin(dlat/2)**2 + math.cos(house_lat) * math.cos(truck_lat) * math.sin(dlon/2)**2
+                c = 2 * math.asin(math.sqrt(a))
+                r = 6371
+                distance = c * r
+
+                coordinate_table.append({
+                    "house_id": house["house_id"],
+                    "truck_id": truck["truck_id"],
+                    "distance_km": round(distance, 2),
+                    "status": truck["status"]
+                })
+
+        return {"all_routes": coordinate_table}
+
+    except Exception as e:
+        return {"error": str(e)}
+
+
+# define pickup route and all other routes which are derivied using a foregin key
