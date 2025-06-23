@@ -1,3 +1,4 @@
+from typing import List
 from fastapi import APIRouter
 from client import supabase
 from pydantic import BaseModel
@@ -47,6 +48,8 @@ class Admin(BaseModel):
     admin_no: int
     admin_name: str
 
+class rfid(BaseModel):
+    rfid_tag: List[str]
 
 @admin.get("/user_info")
 async def user_information():
@@ -192,59 +195,101 @@ async def add_worker(info: Worker):
         return {"message": "Worker Information Successfully Recorded"}
     except:
         return {"message": "Worker Information Couldn't be Recorded"}
-
-@admin.post("/add_schedule")
-async def add_schedule(info: Schedule):
-    try:
-        data = {
-            "schedule_id": info.schedule_id,
-            "truck_id": info.truck_id,
-            "worker_id": info.worker_id,
-            "date": info.date,
-            "zone": info.zone
-        }
-        supabase.table("schedules").insert(data).execute()
-        return {"message": "Schedule Information Successfully Recorded"}
-    except:
-        return {"message": "Schedule Information Couldn't be Recorded"}
     
-@admin.get("/route_processing")
-async def data_processing():
+@admin.get("/free_bins")
+async def free_bins():
     try:
-        coordinate_table = []
+        free_bins = []
+        response = supabase.table("bins").select("bin_id", "zone", "status").execute()
+        response = response.data
+        for bins in response:
+            if bins["status"].lower() == "filled":
+                continue
+            else:
+                free_bins.append(bins)
+        return {"message": free_bins}
+    except Exception as e:
+        return {"message": str(e)}
+    
+@admin.post("/optimized_schedule")
+async def optimized_schedule():
+    try:
+        final_schedule = []
 
-        house_location = supabase.table("houses").select("house_id", "gps_location").execute()
-        truck_location = supabase.table("trucks").select("truck_id", "gps_location", "status").execute()
+        houses = supabase.table("houses").select("house_id", "gps_location", "zone").execute().data
+        trucks = [t for t in supabase.table("trucks").select("truck_id", "gps_location", "status").execute().data if t["status"]]
+        workers = [w for w in supabase.table("workers").select("worker_id", "availability").execute().data if w["availability"]]
+        bins = [b for b in supabase.table("bins").select("bin_id", "zone", "status").execute().data if b["status"].lower() != "filled"]
 
-        house_coords = house_location.data
-        truck_coords = truck_location.data
+        truck_index = 0
+        worker_index = 0
+        bin_index = 0
 
-        for house in house_coords:
-            house_lat, house_lon = [float(x) for x in house["gps_location"].split(",")]
-            house_lat, house_lon = map(math.radians, [house_lat, house_lon])
+        available_count = min(len(trucks), len(workers), len(bins), len(houses))
+        if available_count == 0:
+            return {"message": "No available trucks, workers, or bins"}
 
-            for truck in truck_coords:
-                truck_lat, truck_lon = [float(x) for x in truck["gps_location"].split(",")]
-                truck_lat, truck_lon = map(math.radians, [truck_lat, truck_lon])
+        for i in range(available_count):
+            house = houses[i]
+            truck = trucks[truck_index]
+            worker = workers[worker_index]
+            bin_ = bins[bin_index]
 
-                dlat = truck_lat - house_lat
-                dlon = truck_lon - house_lon
-                a = math.sin(dlat/2)**2 + math.cos(house_lat) * math.cos(truck_lat) * math.sin(dlon/2)**2
-                c = 2 * math.asin(math.sqrt(a))
-                r = 6371
-                distance = c * r
+            schedule_entry = {
+                "truck_id": truck["truck_id"],
+                "worker_id": worker["worker_id"],
+                "zone": house["zone"],
+                "bin_id": bin_["bin_id"]
+            }
 
-                coordinate_table.append({
-                    "house_id": house["house_id"],
-                    "truck_id": truck["truck_id"],
-                    "distance_km": round(distance, 2),
-                    "status": truck["status"]
-                })
+            final_schedule.append(schedule_entry)
 
-        return {"all_routes": coordinate_table}
+            truck_index += 1
+            worker_index += 1
+            bin_index += 1
+
+        if final_schedule:
+            supabase.table("schedules").insert(final_schedule).execute()
+
+            for s in final_schedule:
+                supabase.table("trucks").update({"status": False}).eq("truck_id", s["truck_id"]).execute()
+                supabase.table("workers").update({"availability": False}).eq("worker_id", s["worker_id"]).execute()
+                supabase.table("bins").update({"status": "filled"}).eq("bin_id", s["bin_id"]).execute()
+
+            return {"message": "Optimized Schedules Added", "schedule": final_schedule}
+        else:
+            return {"message": "Not enough available resources to create a schedule"}
 
     except Exception as e:
         return {"error": str(e)}
 
+@admin.post("/schedule_completion")
+async def schedule_completion(tag: rfid):
+    try:
+        schedule_result = supabase.table("schedules").select("schedule_id", "zone", "truck_id", "worker_id", "bin_id").order("schedule_id", desc=True).limit(1).execute()
+        if not schedule_result.data:
+            return {"message": "No schedule found"}
+        latest_schedule = schedule_result.data[0]
+        data_zone = latest_schedule["zone"]
+        inserted_pickups = []
+        for code in tag.rfid_tag:
+            house_result = supabase.table("houses").select("house_id", "zone").eq("zone", data_zone).eq("rfid_tag", code).execute()
+            if house_result.data:
+                house = house_result.data[0]
+                pickup_data = {
+                    "house_id": house["house_id"],
+                    "bin_id": latest_schedule["bin_id"],
+                    "truck_id": latest_schedule["truck_id"],
+                }
+                supabase.table("pickups").insert(pickup_data).execute()
+                inserted_pickups.append(pickup_data)
 
-# define pickup route and all other routes which are derivied using a foregin key
+        supabase.table("schedules").delete().eq("schedule_id", latest_schedule["schedule_id"]).execute()
+        supabase.table("trucks").update({"status": True}).eq("truck_id", latest_schedule["truck_id"]).execute()
+        supabase.table("bins").update({"status": "not filled"}).eq("bin_id", latest_schedule["bin_id"]).execute()
+        supabase.table("workers").update({"availability": True}).eq("worker_id", latest_schedule["worker_id"]).execute()
+
+        return {"message": "Garbage Routine Completed", "pickups": inserted_pickups}
+
+    except Exception as e:
+        return {"error": str(e)}
