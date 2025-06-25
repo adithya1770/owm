@@ -4,7 +4,6 @@ from pydantic import BaseModel
 
 user = APIRouter()
 
-
 # IF THE USER LOGS IN THEN THESE ARE THE ROUTES SHOWN
 
 class Cookie(BaseModel):
@@ -12,6 +11,13 @@ class Cookie(BaseModel):
 
 class House_Cookie(BaseModel):
     house_id: str
+
+class Payment(BaseModel):
+    amount: int
+    card_no: str
+    exp_month: int
+    exp_year: int
+    cvc: int
 
 @user.post("/me")
 async def user_info(cookie: Cookie):
@@ -57,4 +63,3 @@ async def payment_status(cookie: House_Cookie):
     except Exception as e:
         return e
     
-
