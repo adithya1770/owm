@@ -1,8 +1,11 @@
 from fastapi import APIRouter
 from client import supabase
 from pydantic import BaseModel
+from twilio.rest import Client
 
 user = APIRouter()
+account_sid = 'ACb00f57d50793c2144225551e69d69c33'
+auth_token = 'd8550876fb703e950dfcd3820f017a3c'
 
 # IF THE USER LOGS IN THEN THESE ARE THE ROUTES SHOWN
 
@@ -18,6 +21,16 @@ class Payment(BaseModel):
     exp_month: int
     exp_year: int
     cvc: int
+
+class Complaint(BaseModel):
+    house_id: int
+    user_name : str
+    complaint: str
+
+class Payment_Cookie(BaseModel):
+    house_id: int
+    bill_id: int
+    mobile: str
 
 @user.post("/me")
 async def user_info(cookie: Cookie):
@@ -63,3 +76,57 @@ async def payment_status(cookie: House_Cookie):
     except Exception as e:
         return e
     
+@user.post("/billing_info/payment_gateway")
+async def payment_gateway(cookie: Payment_Cookie):
+    client = Client(account_sid, auth_token)
+    try:
+        response = supabase.table("billing").select("*").eq("house_id", cookie.house_id).eq("bill_id", cookie.bill_id).execute()
+        balance_data = supabase.table("user_overview").select("balance").eq("house_id", cookie.house_id).execute().data
+
+        if not balance_data:
+            return {"message": "No balance record found for the house"}
+
+        current_balance = balance_data[0]["balance"]
+
+        if current_balance > 0:
+            new_balance = current_balance - 15
+            supabase.table("billing").update({"status": "paid"}).eq("house_id", cookie.house_id).eq("bill_id", cookie.bill_id).execute()
+            supabase.table("user_overview").update({"balance": new_balance}).eq("house_id", cookie.house_id).execute()
+            message = client.messages.create(
+                body=f"Bill Amount Paid. Deducted Rs.{new_balance} for House ID {cookie.house_id}",
+                from_='+16812442303',
+                to="+91"+cookie.mobile
+            )
+            return {"message": "Payment processed successfully"}
+        else:
+            message = client.messages.create(
+                body="Insufficient balance. Please top-up your Optimized Waste Management account.",
+                from_='+16812442303',
+                to="+91"+cookie.mobile
+            )
+            return {"message": "Insufficient balance. Alert sent via SMS."}
+
+    except Exception as e:
+        return {"error": str(e)}
+
+@user.post("/greviance/complaint")
+async def complaint(data: Complaint):
+    try:
+        data = {
+            "house_id": data.house_id,
+            "name": data.user_name,
+            "complaint": data.complaint
+        }
+        supabase.table("complaint").insert(data).execute()
+        return {"message": "Succesfully Registered Your Complaint"}
+    except Exception as e:
+        return {"error": str(e)}
+    
+@user.get("/greviance/complaint_status")
+async def complaint(data: House_Cookie):
+    try:
+        response = supabase.table("complaint").select("*").eq("house_id", data.house_id).execute()
+        response = response.data
+        return {"response": response}
+    except Exception as e:
+        return {"error": str(e)}

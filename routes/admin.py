@@ -50,6 +50,11 @@ class Admin(BaseModel):
 class rfid(BaseModel):
     rfid_tag: List[str]
 
+class Credentials(BaseModel):
+    display_name: str
+    house_id: str
+    balance: int
+
 @admin.get("/user_info")
 async def user_information():
     try:
@@ -194,7 +199,55 @@ async def add_worker(info: Worker):
         return {"message": "Worker Information Successfully Recorded"}
     except:
         return {"message": "Worker Information Couldn't be Recorded"}
-    
+
+@admin.delete("/remove_admin")
+async def remove_admin(admin_no: int):
+    try:
+        supabase.table("admin").delete().eq("admin_no", admin_no).execute()
+        return {"message": "Admin Successfully Removed"}
+    except:
+        return {"message": "Admin Couldn't be Removed"}
+
+@admin.delete("/remove_house")
+async def remove_house(house_id: int):
+    try:
+        supabase.table("houses").delete().eq("house_id", house_id).execute()
+        return {"message": "House Successfully Removed"}
+    except:
+        return {"message": "House Couldn't be Removed"}
+
+@admin.delete("/remove_bin")
+async def remove_bin(bin_id: int):
+    try:
+        supabase.table("bins").delete().eq("bin_id", bin_id).execute()
+        return {"message": "Bin Successfully Removed"}
+    except:
+        return {"message": "Bin Couldn't be Removed"}
+
+@admin.delete("/remove_billing")
+async def remove_billing(bill_id: int):
+    try:
+        supabase.table("billing").delete().eq("bill_id", bill_id).execute()
+        return {"message": "Billing Entry Successfully Removed"}
+    except:
+        return {"message": "Billing Entry Couldn't be Removed"}
+
+@admin.delete("/remove_truck")
+async def remove_truck(truck_id: int):
+    try:
+        supabase.table("trucks").delete().eq("truck_id", truck_id).execute()
+        return {"message": "Truck Successfully Removed"}
+    except:
+        return {"message": "Truck Couldn't be Removed"}
+
+@admin.delete("/remove_worker")
+async def remove_worker(worker_id: int):
+    try:
+        supabase.table("workers").delete().eq("worker_id", worker_id).execute()
+        return {"message": "Worker Successfully Removed"}
+    except:
+        return {"message": "Worker Couldn't be Removed"}
+
 @admin.get("/free_bins")
 async def free_bins():
     try:
@@ -209,6 +262,14 @@ async def free_bins():
         return {"message": free_bins}
     except Exception as e:
         return {"message": str(e)}
+    
+@admin.post("/deposit_money")
+async def deposit_money(creds: Credentials):
+    try:
+        supabase.table("user_overview").update({"balance": creds.balance}).eq("display_name", creds.display_name).eq("house_id", creds.house_id).execute()
+        return {"message": "Balance updated successfully"}
+    except Exception as e:
+        return {"message": str(e)}  
     
 import math
 

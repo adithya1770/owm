@@ -106,7 +106,6 @@ async def customer_signup_phone(creds: Credentials_Phone_Signup):
         }
         response = supabase.table("user_overview").insert(user_creds).execute()
         return {"success": "You are Successfully Signed Up. Wait for Verification", "token": user}
-        return {"success": "You are Successfully Signed Up. Wait for Verification"}
     except:
         return {"failed": "Your House is Not Yet Registered"}    
     
