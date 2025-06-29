@@ -55,6 +55,14 @@ class Credentials(BaseModel):
     house_id: str
     balance: int
 
+class Updater(BaseModel):
+    truck_id: int
+    coords: str
+
+class Updater_Bins(BaseModel):
+    bin_id: int
+    level: str
+
 @admin.get("/user_info")
 async def user_information():
     try:
@@ -330,7 +338,10 @@ async def optimized_schedule():
                 "truck_id": assignment["truck"]["truck_id"],
                 "worker_id": workers[i]["worker_id"],
                 "zone": assignment["house"]["zone"],
-                "bin_id": bins[i]["bin_id"]
+                "bin_id": bins[i]["bin_id"],
+                "distance": min_distance,
+                "truck_coords": str(truck_coords).replace("[", "").replace("]", ""),
+                "house_coords": str(house_coords).replace("[", "").replace("]", "")
             }
 
             final_schedule.append(schedule_entry)
@@ -341,7 +352,6 @@ async def optimized_schedule():
             for s in final_schedule:
                 supabase.table("trucks").update({"status": False}).eq("truck_id", s["truck_id"]).execute()
                 supabase.table("workers").update({"availability": False}).eq("worker_id", s["worker_id"]).execute()
-                supabase.table("bins").update({"status": "filled"}).eq("bin_id", s["bin_id"]).execute()
 
             return {"message": "Optimized Schedule Created", "schedule": final_schedule}
         else:
@@ -354,36 +364,81 @@ async def optimized_schedule():
 @admin.post("/schedule_completion")
 async def schedule_completion(tag: rfid):
     try:
-        schedule_result = supabase.table("schedules").select("schedule_id", "zone", "truck_id", "worker_id", "bin_id").order("schedule_id", desc=True).limit(1).execute()
-        print(schedule_result)
+        schedule_result = supabase.table("schedules").select(
+            "schedule_id", "zone", "truck_id", "worker_id", "bin_id", "truck_coords", "house_coords"
+        ).order("schedule_id", desc=True).limit(1).execute()
+
         if not schedule_result.data:
             return {"message": "No schedule found"}
+
         latest_schedule = schedule_result.data[0]
         data_zone = latest_schedule["zone"]
+
+        bin_data = supabase.table("bins").select("bin_id", "fill_level", "fill_level_max").eq(
+            "bin_id", latest_schedule["bin_id"]
+        ).execute().data[0]
+
+        fill_lvl = bin_data["fill_level"]
+        max_fill = bin_data["fill_level_max"]
+        new_fill_lvl = max(0, fill_lvl - 25)
+
+        if new_fill_lvl >= max_fill:
+            status_new = "filled"
+            new_fill_lvl = max_fill
+        else:
+            status_new = "not filled"
+
         inserted_pickups = []
+
         for code in tag.rfid_tag:
-            house_result = supabase.table("houses").select("house_id", "zone").eq("zone", data_zone).eq("rfid_tag", code).execute()
-            if house_result.data:
+            house_result = supabase.table("houses").select("house_id", "zone", "rfid_tag").eq(
+                "zone", data_zone
+            ).eq("rfid_tag", code).execute()
+
+            if house_result.data and latest_schedule["house_coords"] == latest_schedule["truck_coords"]:
                 house = house_result.data[0]
+
                 pickup_data = {
                     "house_id": house["house_id"],
                     "bin_id": latest_schedule["bin_id"],
                     "truck_id": latest_schedule["truck_id"],
                 }
+
                 billing_info = {
                     "house_id": house["house_id"],
                     "status": "unpaid"
                 }
+
                 supabase.table("pickups").insert(pickup_data).execute()
+                supabase.table("billing").insert(billing_info).execute()
                 inserted_pickups.append(pickup_data)
 
         supabase.table("schedules").delete().eq("schedule_id", latest_schedule["schedule_id"]).execute()
+
         supabase.table("trucks").update({"status": True}).eq("truck_id", latest_schedule["truck_id"]).execute()
-        supabase.table("bins").update({"status": "not filled"}).eq("bin_id", latest_schedule["bin_id"]).execute()
         supabase.table("workers").update({"availability": True}).eq("worker_id", latest_schedule["worker_id"]).execute()
-        supabase.table("billing").insert(billing_info).execute()
+        supabase.table("bins").update({"fill_level": new_fill_lvl, "status": status_new}).eq("bin_id", latest_schedule["bin_id"]).execute()
+
         return {"message": "Garbage Routine Completed", "pickups": inserted_pickups}
 
     except Exception as e:
         return {"error": str(e)}
+
     
+@admin.post("/updater")
+async def updater(cords: Updater):
+    try:
+        supabase.table("schedules").update({"truck_coords": cords.coords}).eq("truck_id", cords.truck_id).execute()
+        supabase.table("trucks").update({"gps_location": cords.coords}).eq("truck_id", cords.truck_id).execute()
+        return {"message": "Location Updated Succesfully"}
+    except Exception as e:
+        return {"error": str(e)}    
+
+@admin.post("/bin_updater")
+async def updater(data: Updater_Bins):
+    try:
+        fill_level = supabase.table("bins").select("fill_level").eq("bin_id", data.bin_id).execute().data[0]["fill_level"]
+        supabase.table("bins").update({"fill_level": fill_level+data.level}).eq("bin_id", data.bin_id).execute()
+        return {"message": "Bins Updated Succesfully"}
+    except Exception as e:
+        return {"error": str(e)}    
