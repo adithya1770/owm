@@ -2,6 +2,7 @@ from typing import List
 from fastapi import APIRouter
 from client import supabase
 from pydantic import BaseModel
+from jobs import call_bin
 
 admin = APIRouter()
 
@@ -434,11 +435,52 @@ async def updater(cords: Updater):
     except Exception as e:
         return {"error": str(e)}    
 
-@admin.post("/bin_updater")
-async def updater(data: Updater_Bins):
+@admin.post("/bin_update")
+async def update_bin():
     try:
-        fill_level = supabase.table("bins").select("fill_level").eq("bin_id", data.bin_id).execute().data[0]["fill_level"]
-        supabase.table("bins").update({"fill_level": fill_level+data.level}).eq("bin_id", data.bin_id).execute()
-        return {"message": "Bins Updated Succesfully"}
+        call_bin()
+        return {"message": "Bin Successfully Updated"}
     except Exception as e:
-        return {"error": str(e)}    
+        return {"error": str(e)}
+    
+@admin.get("/analytics")
+async def analytics():
+    try:
+        total_bills = 0
+        total_collection = 0
+        total_unpaid = 0
+        total_paid = 0
+        complaints_solved = 0
+        total_complaints = 0
+        bill_resp = supabase.table("billing").select("*").execute().data
+        complaint_resp = supabase.table("complaint").select("*").execute().data
+        house_count = supabase.table("houses").select("*", count="exact").execute().count
+        pickups_count = supabase.table("pickups").select("*", count="exact").execute().count
+        workers_count = supabase.table("workers").select("*", count="exact").execute().count
+        trucks_count = supabase.table("trucks").select("*", count="exact").execute().count
+        for info in bill_resp:
+            if info["status"] == "unpaid":
+                total_unpaid+=1
+            else:
+                total_paid+=1
+            total_collection+=info["amount"]
+            total_bills+=1
+        for info in complaint_resp:
+            if info["status"] == "solved":
+                complaints_solved+=1
+            else:
+                total_complaints+=1
+        return {
+            "total_bills": total_bills,
+            "total_paid": total_paid,
+            "total_unpaid": total_unpaid,
+            "total_collection": total_collection,
+            "complaints_solved": complaints_solved,
+            "total_complaints": total_complaints,
+            "houses_count": house_count,
+            "pickups_count": pickups_count,
+            "workers_count": workers_count,
+            "trucks_count": trucks_count
+        }
+    except Exception as e:
+        return {"error": str(e)}   
