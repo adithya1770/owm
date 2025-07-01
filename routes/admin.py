@@ -2,7 +2,8 @@ from typing import List
 from fastapi import APIRouter
 from client import supabase
 from pydantic import BaseModel
-from jobs import call_bin
+from jobs import update
+import threading
 
 admin = APIRouter()
 
@@ -396,23 +397,26 @@ async def schedule_completion(tag: rfid):
                 "zone", data_zone
             ).eq("rfid_tag", code).execute()
 
-            if house_result.data and latest_schedule["house_coords"] == latest_schedule["truck_coords"]:
-                house = house_result.data[0]
+            if house_result.data:
+                if latest_schedule["house_coords"] == latest_schedule["truck_coords"]:
+                    house = house_result.data[0]
 
-                pickup_data = {
-                    "house_id": house["house_id"],
-                    "bin_id": latest_schedule["bin_id"],
-                    "truck_id": latest_schedule["truck_id"],
-                }
+                    pickup_data = {
+                        "house_id": house["house_id"],
+                        "bin_id": latest_schedule["bin_id"],
+                        "truck_id": latest_schedule["truck_id"],
+                    }
 
-                billing_info = {
-                    "house_id": house["house_id"],
-                    "status": "unpaid"
-                }
+                    billing_info = {
+                        "house_id": house["house_id"],
+                        "status": "unpaid"
+                    }
 
-                supabase.table("pickups").insert(pickup_data).execute()
-                supabase.table("billing").insert(billing_info).execute()
-                inserted_pickups.append(pickup_data)
+                    supabase.table("pickups").insert(pickup_data).execute()
+                    supabase.table("billing").insert(billing_info).execute()
+                    inserted_pickups.append(pickup_data)
+                else:
+                    threading.Thread(target=update, daemon=True).start()
 
         supabase.table("schedules").delete().eq("schedule_id", latest_schedule["schedule_id"]).execute()
 
@@ -434,14 +438,6 @@ async def updater(cords: Updater):
         return {"message": "Location Updated Succesfully"}
     except Exception as e:
         return {"error": str(e)}    
-
-@admin.post("/bin_update")
-async def update_bin():
-    try:
-        call_bin()
-        return {"message": "Bin Successfully Updated"}
-    except Exception as e:
-        return {"error": str(e)}
     
 @admin.get("/analytics")
 async def analytics():
