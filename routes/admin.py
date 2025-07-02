@@ -2,8 +2,6 @@ from typing import List
 from fastapi import APIRouter
 from client import supabase
 from pydantic import BaseModel
-from jobs import update
-import threading
 
 admin = APIRouter()
 
@@ -301,7 +299,7 @@ async def optimized_schedule():
     try:
         final_schedule = []
 
-        houses = supabase.table("houses").select("house_id, gps_location, zone").execute().data
+        houses = supabase.table("houses").select("house_id, gps_location, zone, remarks").execute().data
         trucks = [t for t in supabase.table("trucks").select("truck_id, gps_location, status").execute().data if t["status"]]
         workers = [w for w in supabase.table("workers").select("worker_id, availability").execute().data if w["availability"]]
         bins = [b for b in supabase.table("bins").select("bin_id, zone, status").execute().data if b["status"].lower() != "filled"]
@@ -312,9 +310,13 @@ async def optimized_schedule():
         assignments = []
 
         for house in houses:
+            if house["remarks"] != False:
+                continue
+
             house_coords = list(map(float, house["gps_location"].split(",")))
             closest_truck = None
             min_distance = float("inf")
+            best_coords = None
 
             for truck in trucks:
                 truck_coords = list(map(float, truck["gps_location"].split(",")))
@@ -323,12 +325,15 @@ async def optimized_schedule():
                 if distance < min_distance:
                     min_distance = distance
                     closest_truck = truck
+                    best_coords = truck_coords
 
             if closest_truck:
                 assignments.append({
                     "truck": closest_truck,
                     "house": house,
-                    "distance_km": min_distance
+                    "distance_km": min_distance,
+                    "truck_coords": best_coords,
+                    "house_coords": house_coords
                 })
                 trucks.remove(closest_truck)
 
@@ -341,9 +346,9 @@ async def optimized_schedule():
                 "worker_id": workers[i]["worker_id"],
                 "zone": assignment["house"]["zone"],
                 "bin_id": bins[i]["bin_id"],
-                "distance": min_distance,
-                "truck_coords": str(truck_coords).replace("[", "").replace("]", ""),
-                "house_coords": str(house_coords).replace("[", "").replace("]", "")
+                "distance": assignment["distance_km"],
+                "truck_coords": ",".join(map(str, assignment["truck_coords"])),
+                "house_coords": ",".join(map(str, assignment["house_coords"]))
             }
 
             final_schedule.append(schedule_entry)
@@ -354,7 +359,6 @@ async def optimized_schedule():
             for s in final_schedule:
                 supabase.table("trucks").update({"status": False}).eq("truck_id", s["truck_id"]).execute()
                 supabase.table("workers").update({"availability": False}).eq("worker_id", s["worker_id"]).execute()
-
             return {"message": "Optimized Schedule Created", "schedule": final_schedule}
         else:
             return {"message": "No schedule could be created"}
@@ -376,19 +380,18 @@ async def schedule_completion(tag: rfid):
         latest_schedule = schedule_result.data[0]
         data_zone = latest_schedule["zone"]
 
-        bin_data = supabase.table("bins").select("bin_id", "fill_level", "fill_level_max").eq(
+        bin_data = supabase.table("bins").select("bin_id", "fill_level", "fill_level_max", "status").eq(
             "bin_id", latest_schedule["bin_id"]
         ).execute().data[0]
+
+        if bin_data["status"].lower() == "filled":
+            return {"message": "Bin is already filled. Cannot complete schedule."}
 
         fill_lvl = bin_data["fill_level"]
         max_fill = bin_data["fill_level_max"]
         new_fill_lvl = max(0, fill_lvl - 25)
-
-        if new_fill_lvl >= max_fill:
-            status_new = "filled"
-            new_fill_lvl = max_fill
-        else:
-            status_new = "not filled"
+        new_fill_lvl = min(new_fill_lvl, max_fill)
+        status_new = "filled" if new_fill_lvl >= max_fill else "not filled"
 
         inserted_pickups = []
 
@@ -398,46 +401,32 @@ async def schedule_completion(tag: rfid):
             ).eq("rfid_tag", code).execute()
 
             if house_result.data:
-                if latest_schedule["house_coords"] == latest_schedule["truck_coords"]:
-                    house = house_result.data[0]
+                house = house_result.data[0]
 
-                    pickup_data = {
-                        "house_id": house["house_id"],
-                        "bin_id": latest_schedule["bin_id"],
-                        "truck_id": latest_schedule["truck_id"],
-                    }
+                pickup_data = {
+                    "house_id": house["house_id"],
+                    "bin_id": latest_schedule["bin_id"],
+                    "truck_id": latest_schedule["truck_id"],
+                }
 
-                    billing_info = {
-                        "house_id": house["house_id"],
-                        "status": "unpaid"
-                    }
+                billing_info = {
+                    "house_id": house["house_id"],
+                    "status": "unpaid"
+                }
 
-                    supabase.table("pickups").insert(pickup_data).execute()
-                    supabase.table("billing").insert(billing_info).execute()
-                    inserted_pickups.append(pickup_data)
-                else:
-                    threading.Thread(target=update, daemon=True).start()
+                supabase.table("pickups").insert(pickup_data).execute()
+                supabase.table("billing").insert(billing_info).execute()
+                supabase.table("houses").update({"remarks": True}).eq("house_id", house["house_id"]).execute()
+                inserted_pickups.append(pickup_data)
 
         supabase.table("schedules").delete().eq("schedule_id", latest_schedule["schedule_id"]).execute()
-
         supabase.table("trucks").update({"status": True}).eq("truck_id", latest_schedule["truck_id"]).execute()
         supabase.table("workers").update({"availability": True}).eq("worker_id", latest_schedule["worker_id"]).execute()
         supabase.table("bins").update({"fill_level": new_fill_lvl, "status": status_new}).eq("bin_id", latest_schedule["bin_id"]).execute()
-
         return {"message": "Garbage Routine Completed", "pickups": inserted_pickups}
 
     except Exception as e:
-        return {"error": str(e)}
-
-    
-@admin.post("/updater")
-async def updater(cords: Updater):
-    try:
-        supabase.table("schedules").update({"truck_coords": cords.coords}).eq("truck_id", cords.truck_id).execute()
-        supabase.table("trucks").update({"gps_location": cords.coords}).eq("truck_id", cords.truck_id).execute()
-        return {"message": "Location Updated Succesfully"}
-    except Exception as e:
-        return {"error": str(e)}    
+        return {"error": str(e)}  
     
 @admin.get("/analytics")
 async def analytics():
