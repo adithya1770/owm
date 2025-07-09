@@ -2,10 +2,14 @@ from fastapi import APIRouter
 from client import supabase
 from pydantic import BaseModel
 from twilio.rest import Client
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
 
 user = APIRouter()
-account_sid = 'ACb00f57d50793c2144225551e69d69c33'
-auth_token = 'd8550876fb703e950dfcd3820f017a3c'
+account_sid = os.getenv("TWILIO_SID")
+auth_token = os.getenv("TWILIO_AUTH")
 
 # IF THE USER LOGS IN THEN THESE ARE THE ROUTES SHOWN
 
