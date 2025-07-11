@@ -1,4 +1,5 @@
-setuptools>=42
+setuptools>=67.0
+wheel>=0.38
 accelerate==1.1.1
 aiohappyeyeballs==2.6.1
 aiohttp==3.12.13
