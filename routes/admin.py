@@ -63,221 +63,301 @@ class Updater_Bins(BaseModel):
     bin_id: int
     level: str
 
-@admin.get("/user_info")
-async def user_information():
+class Auth_Id(BaseModel):
+    auth: str
+
+@admin.post("/user_info")
+async def user_information(data: Auth_Id):
     try:
-        response = supabase.table("user_overview").select("*").execute()
-        return response.data
+        name = supabase.table("admin").select("admin_name").eq("admin_id", data.auth).execute().data
+        if name:
+            response = supabase.table("user_overview").select("*").execute()
+            return response.data
+        else:
+            return {"message": "Illegal Access"}
     except:
         return {"message": "Couldn't Retrive Information"}
     
 @admin.get("/house_info")
-async def house_information():
+async def house_information(data: Auth_Id):
     try:
-        response = supabase.table("houses").select("""
+        name = supabase.table("admin").select("admin_name").eq("admin_id", data.auth).execute().data
+        if name:
+            response = supabase.table("houses").select("""
                 *,
                 billing(*),
                 bins(*),
                 pickups(*)
-                """).execute()
-        return response.data
+            """).execute()
+            return response.data
+        else:
+            return {"message": "Illegal Access"}
     except Exception as e:
         return e
 
 @admin.get("/truck_info")
-async def truck_information():
+async def truck_information(data: Auth_Id):
     try:
-        response = supabase.table("schedules").select("""
+        name = supabase.table("admin").select("admin_name").eq("admin_id", data.auth).execute().data
+        if name:
+            response = supabase.table("schedules").select("""
                 *,
                 trucks(*),
                 workers(*),
                 pickups(*)
-                """).execute()
-        return response.data
+            """).execute()
+            return response.data
+        else:
+            return {"message": "Illegal Access"}
     except Exception as e:
         return e
-    
+
 @admin.get("/total_info")
-async def total_information():
+async def total_information(data: Auth_Id):
     try:
-        response = supabase.table("schedules").select("""
-            *,
-            trucks(*),
-            workers(*),
-            pickups(
+        name = supabase.table("admin").select("admin_name").eq("admin_id", data.auth).execute().data
+        if name:
+            response = supabase.table("schedules").select("""
                 *,
-                houses(
+                trucks(*),
+                workers(*),
+                pickups(
                     *,
-                    bins(*),
-                    billing(*)
+                    houses(
+                        *,
+                        bins(*),
+                        billing(*)
+                    )
                 )
-            )
-        """).execute()
-        return response.data
+            """).execute()
+            return response.data
+        else:
+            return {"message": "Illegal Access"}
     except Exception as e:
         return e
-    
+
 @admin.get("/admin_get")
-async def admin_details():
+async def admin_details(data: Auth_Id):
     try:
-        response = supabase.table("admin").select("*").execute()
-        return response.data
+        name = supabase.table("admin").select("admin_name").eq("admin_id", data.auth).execute().data
+        if name:
+            response = supabase.table("admin").select("*").execute()
+            return response.data
+        else:
+            return {"message": "Illegal Access"}
     except:
-        return {"message": "Admin Information Couldn't be Retrived"}
-    
+        return {"message": "Admin Information Couldn't be Retrieved"}
+
 @admin.post("/add_admin")
-async def admin_info(info: Admin):
+async def admin_info(info: Admin, data: Auth_Id):
     try:
-        data = {
-            "admin_no": info.admin_no,
-            "admin_name": info.admin_name
-        }
-        response = supabase.table("admin").insert(data).execute()
-        return {"message": "Admin Information Successfully Recorded"}
-    except: 
+        name = supabase.table("admin").select("admin_name").eq("admin_id", data.auth).execute().data
+        if name:
+            data = {
+                "admin_no": info.admin_no,
+                "admin_name": info.admin_name
+            }
+            response = supabase.table("admin").insert(data).execute()
+            return {"message": "Admin Information Successfully Recorded"}
+        else:
+            return {"message": "Illegal Access"}
+    except:
         return {"message": "Admin Information Couldn't be Recorded"}
 
 @admin.post("/add_house")
-async def add_house_information(info: House):
+async def add_house_information(info: House, data: Auth_Id):
     try:
-        data = {
-            "house_id": info.house_id,
-            "address": info.address,
-            "rfid_tag": info.rfid_tag,
-            "zone": info.zone,
-            "gps_location": info.gps_location
-        }
-        response = supabase.table("houses").insert(data).execute()
-        return {"message": "House Information Successfully Recorded"}
-    except: 
+        name = supabase.table("admin").select("admin_name").eq("admin_id", data.auth).execute().data
+        if name:
+            data = {
+                "house_id": info.house_id,
+                "address": info.address,
+                "rfid_tag": info.rfid_tag,
+                "zone": info.zone,
+                "gps_location": info.gps_location
+            }
+            response = supabase.table("houses").insert(data).execute()
+            return {"message": "House Information Successfully Recorded"}
+        else:
+            return {"message": "Illegal Access"}
+    except:
         return {"message": "House Information Couldn't be Recorded"}
-    
+
 @admin.post("/add_bin")
-async def add_bin(info: Bin):
+async def add_bin(info: Bin, data: Auth_Id):
     try:
-        data = {
-            "bin_id": info.bin_id,
-            "status": info.status,
-            "house_id": info.house_id,
-            "fill_level": info.fill_level,
-            "zone": info.zone
-        }
-        supabase.table("bins").insert(data).execute()
-        return {"message": "Bin Information Successfully Recorded"}
+        name = supabase.table("admin").select("admin_name").eq("admin_id", data.auth).execute().data
+        if name:
+            data = {
+                "bin_id": info.bin_id,
+                "status": info.status,
+                "house_id": info.house_id,
+                "fill_level": info.fill_level,
+                "zone": info.zone
+            }
+            supabase.table("bins").insert(data).execute()
+            return {"message": "Bin Information Successfully Recorded"}
+        else:
+            return {"message": "Illegal Access"}
     except:
         return {"message": "Bin Information Couldn't be Recorded"}
 
 @admin.post("/add_billing")
-async def add_billing(info: Billing):
+async def add_billing(info: Billing, data: Auth_Id):
     try:
-        data = {
-            "bill_id": info.bill_id,
-            "amount": info.amount,
-            "status": info.status,
-            "house_id": info.house_id,
-            "month": info.month
-        }
-        supabase.table("billing").insert(data).execute()
-        return {"message": "Billing Information Successfully Recorded"}
+        name = supabase.table("admin").select("admin_name").eq("admin_id", data.auth).execute().data
+        if name:
+            data = {
+                "bill_id": info.bill_id,
+                "amount": info.amount,
+                "status": info.status,
+                "house_id": info.house_id,
+                "month": info.month
+            }
+            supabase.table("billing").insert(data).execute()
+            return {"message": "Billing Information Successfully Recorded"}
+        else:
+            return {"message": "Illegal Access"}
     except:
         return {"message": "Billing Information Couldn't be Recorded"}
 
 @admin.post("/add_truck")
-async def add_truck(info: Truck):
+async def add_truck(info: Truck, data: Auth_Id):
     try:
-        data = {
-            "truck_id": info.truck_id,
-            "capacity": info.capacity,
-            "gps_location": info.gps_location
-        }
-        supabase.table("trucks").insert(data).execute()
-        return {"message": "Truck Information Successfully Recorded"}
+        name = supabase.table("admin").select("admin_name").eq("admin_id", data.auth).execute().data
+        if name:
+            data = {
+                "truck_id": info.truck_id,
+                "capacity": info.capacity,
+                "gps_location": info.gps_location
+            }
+            supabase.table("trucks").insert(data).execute()
+            return {"message": "Truck Information Successfully Recorded"}
+        else:
+            return {"message": "Illegal Access"}
     except:
         return {"message": "Truck Information Couldn't be Recorded"}
 
 @admin.post("/add_worker")
-async def add_worker(info: Worker):
+async def add_worker(info: Worker, data: Auth_Id):
     try:
-        data = {
-            "worker_id": info.worker_id,
-            "name": info.name,
-            "availability": info.availability
-        }
-        supabase.table("workers").insert(data).execute()
-        return {"message": "Worker Information Successfully Recorded"}
+        name = supabase.table("admin").select("admin_name").eq("admin_id", data.auth).execute().data
+        if name:
+            data = {
+                "worker_id": info.worker_id,
+                "name": info.name,
+                "availability": info.availability
+            }
+            supabase.table("workers").insert(data).execute()
+            return {"message": "Worker Information Successfully Recorded"}
+        else:
+            return {"message": "Illegal Access"}
     except:
         return {"message": "Worker Information Couldn't be Recorded"}
 
 @admin.delete("/remove_admin")
-async def remove_admin(admin_no: int):
+async def remove_admin(admin_no: int, data: Auth_Id):
     try:
-        supabase.table("admin").delete().eq("admin_no", admin_no).execute()
-        return {"message": "Admin Successfully Removed"}
+        name = supabase.table("admin").select("admin_name").eq("admin_id", data.auth).execute().data
+        if name:
+            supabase.table("admin").delete().eq("admin_no", admin_no).execute()
+            return {"message": "Admin Successfully Removed"}
+        else:
+            return {"message": "Illegal Access"}
     except:
         return {"message": "Admin Couldn't be Removed"}
 
 @admin.delete("/remove_house")
-async def remove_house(house_id: int):
+async def remove_house(house_id: int, data: Auth_Id):
     try:
-        supabase.table("houses").delete().eq("house_id", house_id).execute()
-        return {"message": "House Successfully Removed"}
+        name = supabase.table("admin").select("admin_name").eq("admin_id", data.auth).execute().data
+        if name:
+            supabase.table("houses").delete().eq("house_id", house_id).execute()
+            return {"message": "House Successfully Removed"}
+        else:
+            return {"message": "Illegal Access"}
     except:
         return {"message": "House Couldn't be Removed"}
 
 @admin.delete("/remove_bin")
-async def remove_bin(bin_id: int):
+async def remove_bin(bin_id: int, data: Auth_Id):
     try:
-        supabase.table("bins").delete().eq("bin_id", bin_id).execute()
-        return {"message": "Bin Successfully Removed"}
+        name = supabase.table("admin").select("admin_name").eq("admin_id", data.auth).execute().data
+        if name:
+            supabase.table("bins").delete().eq("bin_id", bin_id).execute()
+            return {"message": "Bin Successfully Removed"}
+        else:
+            return {"message": "Illegal Access"}
     except:
         return {"message": "Bin Couldn't be Removed"}
 
 @admin.delete("/remove_billing")
-async def remove_billing(bill_id: int):
+async def remove_billing(bill_id: int, data: Auth_Id):
     try:
-        supabase.table("billing").delete().eq("bill_id", bill_id).execute()
-        return {"message": "Billing Entry Successfully Removed"}
+        name = supabase.table("admin").select("admin_name").eq("admin_id", data.auth).execute().data
+        if name:
+            supabase.table("billing").delete().eq("bill_id", bill_id).execute()
+            return {"message": "Billing Entry Successfully Removed"}
+        else:
+            return {"message": "Illegal Access"}
     except:
         return {"message": "Billing Entry Couldn't be Removed"}
 
 @admin.delete("/remove_truck")
-async def remove_truck(truck_id: int):
+async def remove_truck(truck_id: int, data: Auth_Id):
     try:
-        supabase.table("trucks").delete().eq("truck_id", truck_id).execute()
-        return {"message": "Truck Successfully Removed"}
+        name = supabase.table("admin").select("admin_name").eq("admin_id", data.auth).execute().data
+        if name:
+            supabase.table("trucks").delete().eq("truck_id", truck_id).execute()
+            return {"message": "Truck Successfully Removed"}
+        else:
+            return {"message": "Illegal Access"}
     except:
         return {"message": "Truck Couldn't be Removed"}
 
 @admin.delete("/remove_worker")
-async def remove_worker(worker_id: int):
+async def remove_worker(worker_id: int, data: Auth_Id):
     try:
-        supabase.table("workers").delete().eq("worker_id", worker_id).execute()
-        return {"message": "Worker Successfully Removed"}
+        name = supabase.table("admin").select("admin_name").eq("admin_id", data.auth).execute().data
+        if name:
+            supabase.table("workers").delete().eq("worker_id", worker_id).execute()
+            return {"message": "Worker Successfully Removed"}
+        else:
+            return {"message": "Illegal Access"}
     except:
         return {"message": "Worker Couldn't be Removed"}
 
 @admin.get("/free_bins")
-async def free_bins():
+async def free_bins(data: Auth_Id):
     try:
-        free_bins = []
-        response = supabase.table("bins").select("bin_id", "zone", "status").execute()
-        response = response.data
-        for bins in response:
-            if bins["status"].lower() == "filled":
-                continue
-            else:
-                free_bins.append(bins)
-        return {"message": free_bins}
+        name = supabase.table("admin").select("admin_name").eq("admin_id", data.auth).execute().data
+        if name:
+            free_bins = []
+            response = supabase.table("bins").select("bin_id", "zone", "status").execute().data
+            for bins in response:
+                if bins["status"].lower() == "filled":
+                    continue
+                else:
+                    free_bins.append(bins)
+            return {"message": free_bins}
+        else:
+            return {"message": "Illegal Access"}
     except Exception as e:
         return {"message": str(e)}
-    
+
 @admin.post("/deposit_money")
-async def deposit_money(creds: Credentials):
+async def deposit_money(creds: Credentials, data: Auth_Id):
     try:
-        supabase.table("user_overview").update({"balance": creds.balance}).eq("display_name", creds.display_name).eq("house_id", creds.house_id).execute()
-        return {"message": "Balance updated successfully"}
+        name = supabase.table("admin").select("admin_name").eq("admin_id", data.auth).execute().data
+        if name:
+            supabase.table("user_overview").update({
+                "balance": creds.balance
+            }).eq("display_name", creds.display_name).eq("house_id", creds.house_id).execute()
+            return {"message": "Balance updated successfully"}
+        else:
+            return {"message": "Illegal Access"}
     except Exception as e:
-        return {"message": str(e)}  
+        return {"message": str(e)} 
     
 import math
 
