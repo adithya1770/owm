@@ -2,7 +2,6 @@ from fastapi import APIRouter
 from client import supabase
 from pydantic import BaseModel
 import jwt
-import serial
 import bcrypt
 
 auth = APIRouter()
