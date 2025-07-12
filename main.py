@@ -12,6 +12,10 @@ app.include_router(auth_router, prefix="/auth")
 app.include_router(user_router, prefix="/user")
 app.include_router(admin_router, prefix="/admin")
 
+app.get("/")
+async def home():
+    return "Optimised Waste Management"
+
 def optimized_schedule():
     try:
         res = requests.post("http://localhost:8000/admin/optimized_schedule")
