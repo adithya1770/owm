@@ -14,7 +14,7 @@ app.include_router(admin_router, prefix="/admin")
 
 app.get("/")
 async def home():
-    return "Optimised Waste Management"
+    return {"message": "Optimised Waste Management"}
 
 def optimized_schedule():
     try:
