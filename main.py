@@ -18,7 +18,7 @@ async def home():
 
 def optimized_schedule():
     try:
-        res = requests.post("http://localhost:8000/admin/optimized_schedule")
+        res = requests.post("https://owm.onrender.com/admin/optimized_schedule")
         print(res.json())
     except Exception as e:
         print(e)
@@ -26,7 +26,7 @@ def optimized_schedule():
 def complete():
     try:
         payload = [info["rfid_tag"] for info in supabase.table("houses").select("rfid_tag").execute().data]
-        res = requests.post("http://localhost:8000/admin/schedule_completion", json={"rfid_tag": payload})
+        res = requests.post("https://owm.onrender.com/admin/schedule_completion", json={"rfid_tag": payload})
         print(res.json())
     except Exception as e:
         print(e)

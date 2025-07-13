@@ -33,6 +33,6 @@ def update():
             "coords": gps_location
         }
 
-        response = requests.post("http://localhost:8000/admin/updater", json=payload)
+        response = requests.post("https://owm.onrender.com/admin/updater", json=payload)
         print(response.json())
         time.sleep(5)
