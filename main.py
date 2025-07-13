@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from routes.auth import auth as auth_router
 from routes.user import user as user_router
 from routes.admin import admin as admin_router
-from jobs import call_bin
+from jobs import call_bin, fill_check
 from client import supabase
 import requests, schedule, threading, time
 
@@ -50,6 +50,7 @@ def update():
 
 
 def run_all_schedulers():
+    schedule.every(1).minutes.do(fill_check)
     schedule.every(1).minutes.do(optimized_schedule)
     schedule.every(1).minutes.do(complete)
     schedule.every(1).minutes.do(call_bin)
