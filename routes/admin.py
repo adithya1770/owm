@@ -460,7 +460,6 @@ async def optimized_schedule():
     except Exception as e:
         return {"error": str(e)}
 
-
 @admin.post("/schedule_completion")
 async def schedule_completion(tag: rfid):
     try:
@@ -478,8 +477,8 @@ async def schedule_completion(tag: rfid):
             "bin_id", latest_schedule["bin_id"]
         ).execute().data[0]
 
-        if bin_data["status"].lower() == "filled":
-            return {"message": "Bin is already filled. Cannot complete schedule."}
+        if bin_data["status"].lower() == "not filled":
+            return {"message": "Bin is not filled. Cannot complete schedule."}
 
         fill_lvl = bin_data["fill_level"]
         max_fill = bin_data["fill_level_max"]
