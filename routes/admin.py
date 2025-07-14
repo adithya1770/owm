@@ -382,7 +382,7 @@ async def optimized_schedule():
         houses = supabase.table("houses").select("house_id, gps_location, zone, remarks").execute().data
         trucks = [t for t in supabase.table("trucks").select("truck_id, gps_location, status").execute().data if t["status"]]
         workers = [w for w in supabase.table("workers").select("worker_id, availability").execute().data if w["availability"]]
-        bins = [b for b in supabase.table("bins").select("bin_id, zone, status").execute().data if b["status"].lower() != "filled"]
+        bins = [b for b in supabase.table("bins").select("bin_id, zone, status").execute().data if b["status"].lower() == "filled"]
 
         if not houses or not trucks or not workers or not bins:
             return {"message": "No available trucks, workers, houses, or bins"}
