@@ -417,15 +417,28 @@ async def optimized_schedule():
                 })
                 trucks.remove(closest_truck)
 
-        for i, assignment in enumerate(assignments):
-            if i >= len(workers) or i >= len(bins):
+        for assignment in assignments:
+            if not workers or not bins:
                 break
+
+            house_zone = assignment["house"]["zone"]
+            matched_bin = None
+            for b in bins:
+                if b["zone"] == house_zone:
+                    matched_bin = b
+                    bins.remove(b)
+                    break
+
+            if not matched_bin:
+                continue
+
+            worker = workers.pop(0)
 
             schedule_entry = {
                 "truck_id": assignment["truck"]["truck_id"],
-                "worker_id": workers[i]["worker_id"],
-                "zone": assignment["house"]["zone"],
-                "bin_id": bins[i]["bin_id"],
+                "worker_id": worker["worker_id"],
+                "zone": house_zone,
+                "bin_id": matched_bin["bin_id"],
                 "distance": assignment["distance_km"],
                 "truck_coords": ",".join(map(str, assignment["truck_coords"])),
                 "house_coords": ",".join(map(str, assignment["house_coords"]))
@@ -439,6 +452,7 @@ async def optimized_schedule():
             for s in final_schedule:
                 supabase.table("trucks").update({"status": False}).eq("truck_id", s["truck_id"]).execute()
                 supabase.table("workers").update({"availability": False}).eq("worker_id", s["worker_id"]).execute()
+
             return {"message": "Optimized Schedule Created", "schedule": final_schedule}
         else:
             return {"message": "No schedule could be created"}
