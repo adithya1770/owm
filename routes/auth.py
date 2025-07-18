@@ -15,6 +15,7 @@ class Credentials_Signup(BaseModel):
     address: str
 
 class Credentials_Signin(BaseModel):
+    email: str
     user_id: str
     password: str
 
@@ -153,7 +154,7 @@ async def customer_signup(creds: Credentials_Signup):
 async def customer_signin(creds: Credentials_Signin):
     try:
         data = supabase.auth.sign_in_with_password({
-                'user_id': creds.user_id,
+                'email': creds.email,
                 'password': creds.password,
         })
         return {"success": "You are Successfully Signed In", "token": creds.user_id}
