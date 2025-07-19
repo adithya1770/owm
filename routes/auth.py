@@ -16,7 +16,6 @@ class Credentials_Signup(BaseModel):
 
 class Credentials_Signin(BaseModel):
     email: str
-    user_id: str
     password: str
 
 class Credentials_Admin(BaseModel):
@@ -134,6 +133,7 @@ async def customer_signup(creds: Credentials_Signup):
             },
         })
         user = data.user.id
+        print(user)
         password_new = bcrypt.hashpw(creds.password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
         user_creds = {
             "user_id": user,
@@ -142,7 +142,7 @@ async def customer_signup(creds: Credentials_Signup):
             "display_name": creds.display_name,
             "email": creds.email,
             "password": password_new,
-            "address": creds.address
+            "address": creds.address,
         }
         response = supabase.table("user_overview").insert(user_creds).execute()
         return {"success": "You are Successfully Signed Up. Wait for Verification", "token": user}
@@ -152,13 +152,21 @@ async def customer_signup(creds: Credentials_Signup):
 @auth.post("/customer_signin")
 async def customer_signin(creds: Credentials_Signin):
     try:
-        data = supabase.auth.sign_in_with_password({
-                'email': creds.email,
-                'password': creds.password,
+        data = await supabase.auth.sign_in_with_password({
+            'email': creds.email,
+            'password': creds.password,
         })
-        return {"success": "You are Successfully Signed In", "token": creds.user_id}
+        result = await supabase.table("user_overview").select("user_id").eq("email", creds.email).execute()
+
+        if not result.data:
+            return {"failed": "User not found in user_overview"}
+
+        user_id = result.data[0]["user_id"]
+        return {"success": "You are Successfully Signed In", "token": user_id}
+
     except Exception as e:
         return {"failed": str(e)}
+
     
 
 
