@@ -127,7 +127,6 @@ async def customer_signup(creds: Credentials_Signup):
             'email': creds.email,
             'password': creds.password,
             'options': {
-                'email_redirect_to': 'https://example.com/welcome',
                 "data": {
                     "phone":creds.phone_no,
                     "display_name": creds.display_name
