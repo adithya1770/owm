@@ -152,11 +152,11 @@ async def customer_signup(creds: Credentials_Signup):
 @auth.post("/customer_signin")
 async def customer_signin(creds: Credentials_Signin):
     try:
-        data = await supabase.auth.sign_in_with_password({
+        data = supabase.auth.sign_in_with_password({
             'email': creds.email,
             'password': creds.password,
         })
-        result = await supabase.table("user_overview").select("user_id").eq("email", creds.email).execute()
+        result = supabase.table("user_overview").select("user_id").eq("email", creds.email).execute()
 
         if not result.data:
             return {"failed": "User not found in user_overview"}
