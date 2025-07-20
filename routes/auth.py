@@ -105,8 +105,8 @@ async def customer_signup_phone(creds: Credentials_Phone_Signup):
         }
         response = supabase.table("user_overview").insert(user_creds).execute()
         return {"success": "You are Successfully Signed Up. Wait for Verification", "token": user}
-    except:
-        return {"failed": "Your House is Not Yet Registered"}    
+    except Exception as e:
+        return {"failed": str(e)}  
     
 @auth.post("/customer_signin_phone")
 async def customer_signin_phone(creds: Credentials_Phone_Signin):
@@ -115,7 +115,12 @@ async def customer_signin_phone(creds: Credentials_Phone_Signin):
                 'phone': creds.phone,
                 'password': creds.password
             })
-        return {"success": "You are Successfully Signed In"}
+        result = supabase.table("user_overview").select("user_id").eq("phone_no", creds.phone).execute()
+        if not result.data:
+            return {"failed": "User not found in user_overview"}
+
+        user_id = result.data[0]["user_id"]
+        return {"success": "You are Successfully Signed In", "token": user_id}
     except Exception as e:
         return {"failed": str(e)}    
 
