@@ -45,7 +45,7 @@ async def user_info(cookie: Cookie):
     except Exception as e:
         return e
 
-@user.get("/house_info")
+@user.post("/house_info")
 async def house_information(cookie: House_Cookie):
     try:
         response = supabase.table("houses").select("*").eq("house_id", cookie.house_id).execute()
@@ -53,7 +53,7 @@ async def house_information(cookie: House_Cookie):
     except Exception as e:
         return e
     
-@user.get("/pickup_info")
+@user.post("/pickup_info")
 async def pickup_information(cookie: House_Cookie):
     try:
         response = supabase.table("pickups").select("*").eq("house_id", cookie.house_id).execute()
@@ -61,7 +61,7 @@ async def pickup_information(cookie: House_Cookie):
     except Exception as e:
         return e
     
-@user.get("/billing_info")
+@user.post("/billing_info")
 async def billing_information(cookie: House_Cookie):
     try:
         response = supabase.table("billing").select("*").eq("house_id", cookie.house_id).execute()
@@ -69,7 +69,7 @@ async def billing_information(cookie: House_Cookie):
     except Exception as e:
         return e
     
-@user.get("/billing_info/payment_status")
+@user.post("/billing_info/payment_status")
 async def payment_status(cookie: House_Cookie):
     try:
         response = supabase.table("billing").select("status").eq("house_id", cookie.house_id).execute()
@@ -126,7 +126,7 @@ async def complaint(data: Complaint):
     except Exception as e:
         return {"error": str(e)}
     
-@user.get("/greviance/complaint_status")
+@user.post("/greviance/complaint_status")
 async def complaint(data: House_Cookie):
     try:
         response = supabase.table("complaint").select("*").eq("house_id", data.house_id).execute()
