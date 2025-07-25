@@ -78,7 +78,7 @@ async def user_information(data: Auth_Id):
     except:
         return {"message": "Couldn't Retrive Information"}
     
-@admin.get("/house_info")
+@admin.post("/house_info")
 async def house_information(data: Auth_Id):
     try:
         name = supabase.table("admin").select("admin_name").eq("admin_id", data.auth).execute().data
@@ -95,7 +95,7 @@ async def house_information(data: Auth_Id):
     except Exception as e:
         return e
 
-@admin.get("/truck_info")
+@admin.post("/truck_info")
 async def truck_information(data: Auth_Id):
     try:
         name = supabase.table("admin").select("admin_name").eq("admin_id", data.auth).execute().data
@@ -112,7 +112,7 @@ async def truck_information(data: Auth_Id):
     except Exception as e:
         return e
 
-@admin.get("/total_info")
+@admin.post("/total_info")
 async def total_information(data: Auth_Id):
     try:
         name = supabase.table("admin").select("admin_name").eq("admin_id", data.auth).execute().data
@@ -136,7 +136,7 @@ async def total_information(data: Auth_Id):
     except Exception as e:
         return e
 
-@admin.get("/admin_get")
+@admin.post("/admin_get")
 async def admin_details(data: Auth_Id):
     try:
         name = supabase.table("admin").select("admin_name").eq("admin_id", data.auth).execute().data
@@ -327,7 +327,7 @@ async def remove_worker(worker_id: int, data: Auth_Id):
     except:
         return {"message": "Worker Couldn't be Removed"}
 
-@admin.get("/free_bins")
+@admin.post("/free_bins")
 async def free_bins(data: Auth_Id):
     try:
         name = supabase.table("admin").select("admin_name").eq("admin_id", data.auth).execute().data
