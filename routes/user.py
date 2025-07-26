@@ -19,6 +19,10 @@ class Cookie(BaseModel):
 class House_Cookie(BaseModel):
     house_id: str
 
+class Bill_Cookie(BaseModel):
+    house_id: str
+    bill_id: str
+
 class Payment(BaseModel):
     amount: int
     card_no: str
@@ -70,15 +74,30 @@ async def billing_information(cookie: House_Cookie):
         return e
     
 @user.post("/billing_info/payment_status")
-async def payment_status(cookie: House_Cookie):
+async def payment_status(cookie: Bill_Cookie):
     try:
-        response = supabase.table("billing").select("status").eq("house_id", cookie.house_id).execute()
-        if response.data.status.tolower() in ["paid"]:
-            return "Paid"
+        response = (
+            supabase
+            .table("billing")
+            .select("status")
+            .eq("house_id", cookie.house_id)
+            .eq("bill_id", cookie.bill_id)
+            .execute()
+        )
+
+        data = response.data
+        if not data:
+            return {"status": "No Billing Info Found"}
+
+        status = data[0]["status"].lower()
+        if status == "paid":
+            return {"status": "Paid"}
         else:
-            return "Not Paid"
+            return {"status": "Not Paid"}
+
     except Exception as e:
-        return e
+        return {"error": str(e)}
+
     
 @user.post("/billing_info/payment_gateway")
 async def payment_gateway(cookie: Payment_Cookie):
