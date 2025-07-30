@@ -66,6 +66,7 @@ class Updater_Bins(BaseModel):
 class Auth_Id(BaseModel):
     auth: str
 
+
 @admin.post("/user_info")
 async def user_information(data: Auth_Id):
     try:
@@ -147,22 +148,6 @@ async def admin_details(data: Auth_Id):
             return {"message": "Illegal Access"}
     except:
         return {"message": "Admin Information Couldn't be Retrieved"}
-
-@admin.post("/add_admin")
-async def admin_info(info: Admin, data: Auth_Id):
-    try:
-        name = supabase.table("admin").select("admin_name").eq("admin_id", data.auth).execute().data
-        if name:
-            data = {
-                "admin_no": info.admin_no,
-                "admin_name": info.admin_name
-            }
-            response = supabase.table("admin").insert(data).execute()
-            return {"message": "Admin Information Successfully Recorded"}
-        else:
-            return {"message": "Illegal Access"}
-    except:
-        return {"message": "Admin Information Couldn't be Recorded"}
 
 @admin.post("/add_house")
 async def add_house_information(info: House, data: Auth_Id):
