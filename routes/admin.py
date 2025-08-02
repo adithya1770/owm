@@ -485,6 +485,7 @@ async def schedule_completion(tag: rfid):
                     "house_id": house["house_id"],
                     "bin_id": latest_schedule["bin_id"],
                     "truck_id": latest_schedule["truck_id"],
+                    "schedule_id": latest_schedule["schedule_id"]
                 }
 
                 billing_info = {
