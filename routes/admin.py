@@ -530,12 +530,12 @@ async def analytics():
                 total_paid += 1
             total_collection += info.get("amount", 0)
             total_bills += 1
-            for info in complaint_resp:
-                status = info.get("status", "").lower()
-                if status == "solved":
-                    complaints_solved += 1
-                else:
-                    total_complaints += 1
+        for info in complaint_resp:
+            status = info.get("status", "").lower()
+            if status == "solved":
+                complaints_solved += 1
+            else:
+                total_complaints += 1
         return {
             "total_bills": total_bills,
             "total_paid": total_paid,
