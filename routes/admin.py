@@ -523,17 +523,19 @@ async def analytics():
         workers_count = supabase.table("workers").select("*", count="exact").execute().count
         trucks_count = supabase.table("trucks").select("*", count="exact").execute().count
         for info in bill_resp:
-            if info["status"] == "unpaid":
-                total_unpaid+=1
-            else:
-                total_paid+=1
-            total_collection+=info["amount"]
-            total_bills+=1
-        for info in complaint_resp:
-            if info["status"] == "solved":
-                complaints_solved+=1
-            else:
-                total_complaints+=1
+            status = info.get("status", "").lower()
+            if status == "unpaid":
+                total_unpaid += 1
+            elif status == "paid":
+                total_paid += 1
+            total_collection += info.get("amount", 0)
+            total_bills += 1
+            for info in complaint_resp:
+                status = info.get("status", "").lower()
+                if status == "solved":
+                    complaints_solved += 1
+                else:
+                    total_complaints += 1
         return {
             "total_bills": total_bills,
             "total_paid": total_paid,
