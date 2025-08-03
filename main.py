@@ -48,19 +48,19 @@ def update():
     except Exception as e:
         print("Error updating remarks:", e)
 
-
 def run_all_schedulers():
-    schedule.every(1).minutes.do(fill_check)
-    schedule.every(1).minutes.do(optimized_schedule)
-    schedule.every(1).minutes.do(complete)
-    schedule.every(1).minutes.do(call_bin)
-    schedule.every(1).minutes.do(update)
+    schedule.every().day.at("00:01").do(fill_check)
+    schedule.every().day.at("00:02").do(optimized_schedule)
+    schedule.every().day.at("10:30").do(complete)
+    schedule.every().day.at("00:04").do(call_bin)
+    schedule.every().day.at("11:00").do(update)
     
     while True:
         schedule.run_pending()
         time.sleep(1)
 
 threading.Thread(target=run_all_schedulers, daemon=True).start()
+
 
 
 
